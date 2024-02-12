@@ -9,11 +9,11 @@ import (
 
 	"github.com/alexbrainman/printer"
 	"github.com/gorilla/mux"
-	"github.com/t01t/printers-manager/print"
+	"github.com/jadefox10200/goprint"
 )
 
 func PrintersList(w http.ResponseWriter, r *http.Request) {
-	printers, err := printer.ReadNames()
+	printers, err := goprint.GetPrinterNames()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		log.Println("failed to get printers,", err.Error())
@@ -48,6 +48,11 @@ func GetPrinterJobs(w http.ResponseWriter, r *http.Request) {
 		log.Printf("failed getting '%s' jobs, %s \n", name, err.Error())
 		return
 	}
+	if len(jobs) == 0 {
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, "[]")
+		return
+	}
 
 	jobsJson, err := json.Marshal(jobs)
 	if err != nil {
@@ -70,9 +75,13 @@ func PrintFromPaths(w http.ResponseWriter, r *http.Request) {
 		log.Println("failed to parse request body, ", err.Error())
 		return
 	}
-	fmt.Println(string(path))
+	p, err := goprint.GoOpenPrinter(name)
+	if err != nil {
+		log.Fatalln("Failed to open printer")
+	}
+	defer goprint.GoClosePrinter(p)
 
-	err = print.AddFileByPath(name, string(path))
+	err = goprint.GoPrint(p, string(path))
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		log.Printf("failed to add to jobs '%s', %s\n", string(path), err.Error())
